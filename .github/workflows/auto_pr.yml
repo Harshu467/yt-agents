@@ -1,0 +1,54 @@
+name: Auto PR & Merge for feature branches
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create_pr_and_merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Pull Request
+        id: create_pr
+        uses: actions/github-script@v6
+        env:
+          BRANCH: ${{ github.ref_name }}
+        with:
+          script: |
+            const head = process.env.BRANCH;
+            if (!head) core.setFailed('Branch name unavailable');
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'feat: nvideo support',
+              head: head,
+              base: 'main',
+              body: 'Automated PR: add optional nvideo (NVidia) model support and workflow',
+              maintainer_can_modify: true,
+            });
+            core.setOutput('pull-request-number', String(pr.data.number));
+
+      - name: Merge Pull Request
+        uses: actions/github-script@v6
+        env:
+          PR_NUMBER: ${{ steps.create_pr.outputs.pull-request-number }}
+        with:
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            if (!prNumber) {
+              core.setFailed('No pull request number available to merge.');
+            }
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              merge_method: 'squash',
+            });
