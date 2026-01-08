@@ -14,14 +14,23 @@ jobs:
 
       - name: Create Pull Request
         id: create_pr
-        uses: peter-evans/create-pull-request@v5
+        uses: actions/github-script@v6
+        env:
+          BRANCH: ${{ github.ref_name }}
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: add nvideo support"
-          title: "feat: nvideo support"
-          body: |
-            Automated PR: add optional nvideo (NVidia) model support and workflow
-          base: main
+          script: |
+            const head = process.env.BRANCH;
+            if (!head) core.setFailed('Branch name unavailable');
+            const pr = await github.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'feat: nvideo support',
+              head: head,
+              base: 'main',
+              body: 'Automated PR: add optional nvideo (NVidia) model support and workflow',
+              maintainer_can_modify: true,
+            });
+            core.setOutput('pull-request-number', String(pr.data.number));
 
       - name: Merge Pull Request
         uses: actions/github-script@v6
