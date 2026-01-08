@@ -7,7 +7,7 @@ Creates YouTube SEO-optimized metadata:
 - Hashtags
 - Thumbnail text hints
 """
-from typing import Dict
+from typing import Dict, List
 from utils.llm_client import get_llm_client
 
 
