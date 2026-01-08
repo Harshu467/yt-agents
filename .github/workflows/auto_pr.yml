@@ -1,0 +1,32 @@
+name: Auto PR & Merge for feature branches
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+
+jobs:
+  create_pr_and_merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Pull Request
+        id: create_pr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: add nvideo support"
+          title: "feat: nvideo support"
+          body: |
+            Automated PR: add optional nvideo (NVidia) model support and workflow
+          base: main
+
+      - name: Merge Pull Request
+        uses: peter-evans/merge-pull-request@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.create_pr.outputs.pull-request-number }}
+          merge-method: squash
+          commit-title: "chore: merge nvideo support"
