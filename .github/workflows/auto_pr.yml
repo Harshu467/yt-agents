@@ -21,7 +21,7 @@ jobs:
           script: |
             const head = process.env.BRANCH;
             if (!head) core.setFailed('Branch name unavailable');
-            const pr = await github.pulls.create({
+            const pr = await github.rest.pulls.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: 'feat: nvideo support',
@@ -42,7 +42,7 @@ jobs:
             if (!prNumber) {
               core.setFailed('No pull request number available to merge.');
             }
-            await github.pulls.merge({
+            await github.rest.pulls.merge({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber,
