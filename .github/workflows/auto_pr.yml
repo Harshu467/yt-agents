@@ -24,9 +24,18 @@ jobs:
           base: main
 
       - name: Merge Pull Request
-        uses: peter-evans/merge-pull-request@v2
+        uses: actions/github-script@v6
+        env:
+          PR_NUMBER: ${{ steps.create_pr.outputs.pull-request-number }}
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.create_pr.outputs.pull-request-number }}
-          merge-method: squash
-          commit-title: "chore: merge nvideo support"
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            if (!prNumber) {
+              core.setFailed('No pull request number available to merge.');
+            }
+            await github.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              merge_method: 'squash',
+            });
