@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: yt-agents
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir gunicorn
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --timeout 120 --workers 1 app:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_APP
+        value: app.py
+      - key: PYTHON_VERSION
+        value: 3.11.6
