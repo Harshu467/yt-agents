@@ -370,7 +370,10 @@
             
             try {
                 const response = await fetch(`/api/workflow/${workflowId}/step/${step}`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
                 
                 const data = await response.json();
@@ -453,12 +456,19 @@
         async function approveStep(step) {
             try {
                 const response = await fetch(`/api/workflow/${workflowId}/approve/${step}`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
+                    // Store approval state locally
+                    window.stepStates = window.stepStates || {};
+                    window.stepStates[step] = 'approved';
+                    
                     updateStepStatus(step, 'approved');
                     document.getElementById(`actions-${step}`).innerHTML = `
                         <button class="button btn-approve" disabled>✓ Approved</button>
@@ -486,8 +496,15 @@
             
             try {
                 await fetch(`/api/workflow/${workflowId}/reject/${step}`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
+                
+                // Clear local state
+                window.stepStates = window.stepStates || {};
+                delete window.stepStates[step];
                 
                 updateStepStatus(step, 'pending');
                 document.getElementById(`content-${step}`).style.display = 'none';
@@ -510,7 +527,10 @@
             
             try {
                 const response = await fetch(`/api/workflow/${workflowId}/upload`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
                 
                 const data = await response.json();
@@ -540,6 +560,10 @@
         
         function updateProgressBar() {
             const completed = steps.filter(s => {
+                // Check local state first
+                if (window.stepStates && window.stepStates[s] === 'approved') {
+                    return true;
+                }
                 const status = document.getElementById(`status-${s}`).textContent.toLowerCase();
                 return status === 'COMPLETED' || status === 'APPROVED';
             }).length;
@@ -548,6 +572,9 @@
             
             // Enable upload if all steps are approved
             const allApproved = steps.every(s => {
+                if (window.stepStates && window.stepStates[s] === 'approved') {
+                    return true;
+                }
                 const status = document.getElementById(`status-${s}`).textContent.toLowerCase();
                 return status === 'APPROVED';
             });
@@ -562,6 +589,11 @@
                 document.getElementById('topicDisplay').textContent = `Topic: ${workflow.topic}`;
                 
                 steps.forEach(step => {
+                    // Check local state first to avoid overwriting approved status
+                    if (window.stepStates && window.stepStates[step] === 'approved') {
+                        return; // Skip updating this step, keep local approved state
+                    }
+                    
                     const stepData = workflow.steps[step];
                     if (stepData.data) {
                         displayStepContent(step, stepData.data);
@@ -580,8 +612,16 @@
         // Initialize on load
         initWorkflow();
         
-        // Auto-refresh every 2 seconds
-        setInterval(updateWorkflow, 2000);
+        // Only update when tab is visible (stop continuous polling)
+        // Use Page Visibility API to avoid unnecessary network calls
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                updateWorkflow();
+            }
+        });
+        
+        // Optional: Update on user action completion, not on interval
+        window.stepStates = {};
     </script>
 </body>
 </html>
