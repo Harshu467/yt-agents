@@ -5,14 +5,18 @@ Uploads videos to YouTube using YouTube API (completely free)
 import os
 import pickle
 from typing import Optional, Dict
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaFileUpload
-from config import Config
 from datetime import datetime, timedelta
+from config import Config
+
+try:
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+    from googleapiclient.http import MediaFileUpload
+except ImportError:
+    print("⚠️  Google API libraries not available. YouTube upload will be disabled.")
 
 
 class UploadAgent:

@@ -2,8 +2,16 @@
 1. Trend Detector Agent
 Finds trending, viral, and high-potential video topics from multiple sources
 """
-import tweepy
-import praw
+try:
+    import tweepy
+except ImportError:
+    tweepy = None
+
+try:
+    import praw
+except ImportError:
+    praw = None
+
 import requests
 from typing import List, Dict
 from datetime import datetime

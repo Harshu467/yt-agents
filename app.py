@@ -11,14 +11,49 @@ import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
 import hashlib
 
-# Import agents
-from agents.trend_detector import TrendDetectorAgent
-from agents.research_agent import ResearchAgent
-from agents.script_writer import ScriptWriterAgent
-from agents.metadata_agent import MetadataAgent
-from agents.upload_agent import UploadAgent
-from agents.video_generator import VideoGeneratorAgent
-from agents.video_editor import VideoEditorAgent
+# Import agents (gracefully handle missing optional dependencies)
+try:
+    from agents.trend_detector import TrendDetectorAgent
+except ImportError:
+    TrendDetectorAgent = None
+    print("⚠️  TrendDetectorAgent not available")
+
+try:
+    from agents.research_agent import ResearchAgent
+except ImportError:
+    ResearchAgent = None
+    print("⚠️  ResearchAgent not available")
+
+try:
+    from agents.script_writer import ScriptWriterAgent
+except ImportError:
+    ScriptWriterAgent = None
+    print("⚠️  ScriptWriterAgent not available")
+
+try:
+    from agents.metadata_agent import MetadataAgent
+except ImportError:
+    MetadataAgent = None
+    print("⚠️  MetadataAgent not available")
+
+try:
+    from agents.upload_agent import UploadAgent
+except ImportError:
+    UploadAgent = None
+    print("⚠️  UploadAgent not available")
+
+try:
+    from agents.video_generator import VideoGeneratorAgent
+except ImportError:
+    VideoGeneratorAgent = None
+    print("⚠️  VideoGeneratorAgent not available")
+
+try:
+    from agents.video_editor import VideoEditorAgent
+except ImportError:
+    VideoEditorAgent = None
+    print("⚠️  VideoEditorAgent not available")
+
 from config import Config
 
 app = Flask(__name__)
