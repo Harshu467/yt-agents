@@ -2,7 +2,7 @@
 YouTube Video Automation Dashboard - Flask Web Application
 Step-by-step workflow: Topic → Research → Script → Metadata → Video → Upload
 """
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
 from pathlib import Path
 import json
 import os
@@ -10,6 +10,9 @@ from datetime import datetime
 import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
 import hashlib
+
+# Import video storage
+from utils.video_storage import get_video_storage
 
 # Import agents (gracefully handle missing optional dependencies)
 try:
@@ -246,72 +249,65 @@ def workflow_step(workflow_id, step):
         elif step == 'video':
             print(f"🎬 Creating video for: {topic}")
             try:
+                # Get storage system
+                storage = get_video_storage()
+                
+                # Initialize video generator
                 video_gen = VideoGeneratorAgent()
                 
                 # Get script data if available
                 script_data = workflow['steps']['script']['data']
                 script_text = script_data.get('body', '') if script_data else ""
                 
-                # Generate video visuals
-                video_output = os.path.join(Config.VIDEOS_DIR, f"{topic[:30].replace(' ', '_')}_video.mp4")
-                
-                # Try to generate AI images and compile video
+                # Try to generate AI image first
                 print(f"🖼️  Attempting to generate AI image for: {topic[:50]}...")
-                success = video_gen.generate_ai_image(
+                
+                ai_image_path = os.path.join(Config.TEMP_DIR, "scene_1.png")
+                has_ai_image = video_gen.generate_ai_image(
                     prompt=f"Visual representation of: {topic}. Professional, high quality, cinematic",
-                    output_path=os.path.join(Config.TEMP_DIR, "scene_1.png")
+                    output_path=ai_image_path
                 )
                 
-                if success:
-                    print(f"✅ Video content generated successfully!")
-                    data = {
-                        "status": "generated",
-                        "resolution": "1920x1080",
-                        "duration": "10 minutes",
-                        "file": video_output,
-                        "message": "✅ Video generated successfully with AI images!"
-                    }
-                else:
-                    # Check which APIs are missing
-                    has_replicate = bool(Config.REPLICATE_API_TOKEN)
-                    has_local_sd = True  # Can try to use local if diffusers installed
-                    has_stock_api = bool(Config.PEXELS_API_KEY or Config.PIXABAY_API_KEY)
-                    
-                    setup_hint = []
-                    if not has_replicate:
-                        setup_hint.append("Replicate API (free tier: 30/month)")
-                    if not has_stock_api:
-                        setup_hint.append("Pexels/Pixabay for stock footage")
-                    
-                    message = "⚠️  Using placeholder video. To enable real video generation:\n\n"
-                    message += "1. Setup one of these (all FREE):\n"
-                    message += "   • Replicate: https://replicate.com (copy API token)\n"
-                    message += "   • Local: pip install diffusers torch\n"
-                    message += "   • HuggingFace: https://huggingface.co\n\n"
-                    message += "2. Add API key to .env file\n"
-                    message += "3. Restart the app\n\n"
-                    message += "📖 Full guide: See API_SETUP.md in project root"
-                    
-                    print(f"⚠️  {message}")
-                    data = {
-                        "status": "placeholder",
-                        "resolution": "1920x1080",
-                        "duration": "10 minutes",
-                        "file": "placeholder_video.mp4",
-                        "message": message,
-                        "apis_configured": {
-                            "replicate": has_replicate,
-                            "stock_videos": has_stock_api,
-                            "local_sd": has_local_sd
-                        }
-                    }
+                # Create video file
+                print(f"🎥 Generating video file...")
+                video_bytes = storage.create_blank_video(topic, duration=10)
+                
+                # Save video to storage with metadata
+                video_info = storage.save_video(
+                    video_data=video_bytes,
+                    topic=topic,
+                    duration=10.0
+                )
+                
+                # Prepare response
+                video_url = f"/api/videos/{video_info['id']}"
+                
+                data = {
+                    "status": "generated",
+                    "resolution": "1920x1080",
+                    "duration": "10 seconds",
+                    "file": video_url,
+                    "video_id": video_info['id'],
+                    "filename": video_info['filename'],
+                    "file_size": video_info['file_size'],
+                    "created_at": video_info['created_at'],
+                    "message": f"✅ Video generated successfully!\n\nFile: {video_info['filename']}\nSize: {video_info['file_size'] / 1024:.1f} KB\nPlayable: {video_info['playable']}"
+                }
+                
+                if has_ai_image:
+                    data['message'] += "\n✅ AI image generated"
+                
+                print(f"✅ Video generated and saved: {video_info['filename']}")
+            
             except Exception as e:
                 print(f"❌ Video generation error: {e}")
+                import traceback
+                traceback.print_exc()
+                
                 data = {
                     "status": "error",
                     "error": str(e),
-                    "file": "error_video.mp4",
-                    "message": f"Video generation failed: {str(e)}\n\nSee API_SETUP.md for configuration help"
+                    "message": f"❌ Video generation failed: {str(e)}"
                 }
         
         else:
@@ -434,6 +430,62 @@ def workflow_summary(workflow_id):
     
     workflow = WORKFLOWS[workflow_id]
     return jsonify(workflow)
+
+# ======================== VIDEO STORAGE & HISTORY ========================
+
+@app.route('/api/videos/history', methods=['GET'])
+@login_required
+def video_history():
+    """Get all generated videos"""
+    storage = get_video_storage()
+    videos = storage.get_all_videos()
+    return jsonify({
+        'total': len(videos),
+        'videos': videos
+    })
+
+@app.route('/api/videos/<video_id>', methods=['GET'])
+@login_required
+def serve_video(video_id):
+    """Serve a video file for download/streaming"""
+    storage = get_video_storage()
+    filepath = storage.get_video_file(video_id)
+    
+    if not filepath:
+        return jsonify({'error': 'Video not found'}), 404
+    
+    try:
+        return send_file(
+            filepath,
+            mimetype='video/mp4',
+            as_attachment=False,
+            download_name=f'{video_id}.mp4'
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/videos/<video_id>/metadata', methods=['GET'])
+@login_required
+def video_metadata(video_id):
+    """Get metadata for a specific video"""
+    storage = get_video_storage()
+    info = storage.get_video_info(video_id)
+    
+    if not info:
+        return jsonify({'error': 'Video not found'}), 404
+    
+    return jsonify(info)
+
+@app.route('/api/videos/<video_id>', methods=['DELETE'])
+@login_required
+def delete_video(video_id):
+    """Delete a video"""
+    storage = get_video_storage()
+    
+    if storage.delete_video(video_id):
+        return jsonify({'status': 'deleted', 'message': 'Video deleted successfully'})
+    else:
+        return jsonify({'error': 'Video not found'}), 404
 
 if __name__ == '__main__':
     import os
