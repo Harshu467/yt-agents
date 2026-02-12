@@ -431,13 +431,40 @@
                 `;
             } else if (step === 'video') {
                 html = `
+                    <h4>Video Preview</h4>
+                    <div class="video-player-container" style="margin-bottom: 15px;">
+                        <video id="videoPlayer" style="width: 100%; max-height: 300px; background: #000; border-radius: 8px;" controls>
+                            <source src="${data.file}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
                     <h4>Video Details</h4>
                     <ul>
                         <li>Resolution: ${data.resolution}</li>
                         <li>Duration: ${data.duration}</li>
                         <li>File: ${data.file}</li>
+                        <li>Status: ${data.status}</li>
                     </ul>
+                    ${data.message ? `<p style="color: #666; font-size: 12px; margin-top: 10px;"><em>${data.message}</em></p>` : ''}
                 `;
+            } else if (step === 'upload') {
+                if (data.url) {
+                    html = `
+                        <div style="background: #d4edda; padding: 15px; border-radius: 8px; border: 1px solid #c3e6cb;">
+                            <h4 style="color: #155724; margin-bottom: 10px;">✅ Upload Successful!</h4>
+                            <p><strong>Video ID:</strong> ${data.video_id}</p>
+                            <p><strong>URL:</strong> <a href="${data.url}" target="_blank" style="color: #0066cc;">${data.url}</a></p>
+                            <p><strong>Title:</strong> ${data.title || 'N/A'}</p>
+                            <p><strong>Description:</strong> ${data.description ? data.description.substring(0, 100) + '...' : 'N/A'}</p>
+                            <p style="font-size: 12px; color: #666; margin-top: 10px;"><em>Your video is now live on YouTube!</em></p>
+                        </div>
+                    `;
+                } else {
+                    html = `
+                        <h4>Ready to Upload</h4>
+                        <p>All steps have been completed and approved. Click the upload button below to publish your video to YouTube.</p>
+                    `;
+                }
             }
             
             contentBox.innerHTML = html;
@@ -526,26 +553,48 @@
             btn.textContent = '⏳ Uploading...';
             
             try {
+                const uploadData = {
+                    status: 'public',
+                    timestamp: new Date().toISOString()
+                };
+                
                 const response = await fetch(`/api/workflow/${workflowId}/upload`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
-                    }
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(uploadData)
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
-                    alert(`✅ Video uploaded! Video ID: ${data.video_id}`);
+                    const message = `✅ Video uploaded!\n\nVideo ID: ${data.video_id}\nURL: ${data.url}`;
+                    alert(message);
                     updateStepStatus('upload', 'uploaded');
                     btn.textContent = '✓ Uploaded';
+                    
+                    // Show completion message
+                    const contentBox = document.getElementById('content-upload');
+                    contentBox.style.display = 'block';
+                    contentBox.innerHTML = `
+                        <div style="background: #d4edda; padding: 15px; border-radius: 8px; border: 1px solid #c3e6cb;">
+                            <h4 style="color: #155724; margin-bottom: 10px;">✅ Upload Successful!</h4>
+                            <p><strong>Video ID:</strong> ${data.video_id}</p>
+                            <p><strong>URL:</strong> <a href="${data.url}" target="_blank">${data.url}</a></p>
+                            <p><strong>Title:</strong> ${data.title || 'N/A'}</p>
+                            <p style="font-size: 12px; color: #666; margin-top: 10px;"><em>Your video is now live on YouTube!</em></p>
+                        </div>
+                    `;
                 } else {
-                    alert(`Error: ${data.error}`);
+                    alert(`❌ Upload Error: ${data.error || 'Unknown error'}`);
                     btn.disabled = false;
                     btn.textContent = '📤 Upload to YouTube';
                 }
             } catch (error) {
-                alert(`Error: ${error.message}`);
+                console.error('Upload error:', error);
+                alert(`❌ Network Error: ${error.message}`);
                 btn.disabled = false;
                 btn.textContent = '📤 Upload to YouTube';
             }

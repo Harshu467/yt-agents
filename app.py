@@ -288,11 +288,8 @@ def workflow_step(workflow_id, step):
                     "message": f"Video generation failed: {str(e)}"
                 }
         
-        elif step == 'upload':
-            # Handle upload
-            upload_data = request.json.get('upload_data', {})
-            print(f"📤 Uploading video: {upload_data}")
-            return jsonify({'status': 'success', 'message': 'Video uploaded!'})
+        else:
+            return jsonify({'error': f'Unknown step: {step}'}), 400
         
         # Save step data
         workflow['steps'][step] = {
@@ -349,38 +346,57 @@ def final_upload(workflow_id):
     workflow = WORKFLOWS[workflow_id]
     
     try:
+        # Ensure we're getting JSON data
+        if not request.is_json:
+            return jsonify({'error': 'Content-Type must be application/json'}), 400
+        
+        # Get upload metadata from request if provided
+        upload_metadata = request.json or {}
+        
         # Check if all steps are approved
         for step in ['research', 'script', 'metadata', 'video']:
             if workflow['steps'][step]['status'] != 'approved':
                 return jsonify({'error': f'Step {step} not approved'}), 400
+        
+        # Get video file from workflow
+        video_file = workflow['steps']['video']['data'].get('file') if workflow['steps']['video']['data'] else None
+        if not video_file:
+            return jsonify({'error': 'No video file found'}), 400
         
         # Prepare upload data
         upload_data = {
             'title': workflow['steps']['metadata']['data']['title'],
             'description': workflow['steps']['metadata']['data']['description'],
             'tags': workflow['steps']['metadata']['data']['tags'],
-            'video_file': workflow['steps']['video']['data']['file']
+            'video_file': video_file,
+            'status': upload_metadata.get('status', 'public'),
+            'playlist_id': upload_metadata.get('playlist_id')
         }
         
         # Simulate upload
         print(f"📤 Uploading video to YouTube...")
         print(f"   Title: {upload_data['title']}")
         print(f"   Video: {upload_data['video_file']}")
+        print(f"   Tags: {', '.join(upload_data['tags'])}")
         
         workflow['steps']['upload']['status'] = 'uploaded'
         workflow['steps']['upload']['data'] = {
             'video_id': 'dQw4w9WgXcQ',  # Mock YouTube video ID
             'url': 'https://youtube.com/watch?v=dQw4w9WgXcQ',
-            'uploaded_at': datetime.now().isoformat()
+            'uploaded_at': datetime.now().isoformat(),
+            'title': upload_data['title'],
+            'description': upload_data['description']
         }
         
         return jsonify({
             'status': 'uploaded',
             'video_id': 'dQw4w9WgXcQ',
+            'url': 'https://youtube.com/watch?v=dQw4w9WgXcQ',
             'message': 'Video uploaded successfully!'
-        })
+        }), 200
     
     except Exception as e:
+        print(f"❌ Upload error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/workflow/<workflow_id>/summary', methods=['GET'])
