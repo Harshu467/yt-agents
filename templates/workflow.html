@@ -430,6 +430,11 @@
                     <p>${data.tags.join(', ')}</p>
                 `;
             } else if (step === 'video') {
+                const statusColor = data.status === 'generated' ? '#d4edda' : 
+                                   data.status === 'error' ? '#f8d7da' : '#fff3cd';
+                const statusBgColor = data.status === 'generated' ? '#c3e6cb' : 
+                                     data.status === 'error' ? '#f5c6cb' : '#ffeaa7';
+                
                 html = `
                     <h4>Video Preview</h4>
                     <div class="video-player-container" style="margin-bottom: 15px;">
@@ -443,9 +448,18 @@
                         <li>Resolution: ${data.resolution}</li>
                         <li>Duration: ${data.duration}</li>
                         <li>File: ${data.file}</li>
-                        <li>Status: ${data.status}</li>
+                        <li>Status: <strong>${data.status.toUpperCase()}</strong></li>
                     </ul>
-                    ${data.message ? `<p style="color: #666; font-size: 12px; margin-top: 10px;"><em>${data.message}</em></p>` : ''}
+                    ${data.message ? `
+                        <div style="background: ${statusColor}; padding: 15px; border-radius: 8px; border: 1px solid ${statusBgColor}; margin-top: 15px; font-size: 13px; line-height: 1.6;">
+                            <p style="white-space: pre-wrap; margin: 0; color: #333;">${data.message}</p>
+                            ${data.status === 'placeholder' ? `
+                                <p style="margin: 10px 0 0 0; padding-top: 10px; border-top: 1px solid ${statusBgColor};">
+                                    <strong>📖 Quick Setup:</strong> See <code style="background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 3px;">API_SETUP.md</code> in the project root for detailed instructions.
+                                </p>
+                            ` : ''}
+                        </div>
+                    ` : ''}
                 `;
             } else if (step === 'upload') {
                 if (data.url) {

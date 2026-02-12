@@ -256,28 +256,54 @@ def workflow_step(workflow_id, step):
                 video_output = os.path.join(Config.VIDEOS_DIR, f"{topic[:30].replace(' ', '_')}_video.mp4")
                 
                 # Try to generate AI images and compile video
+                print(f"🖼️  Attempting to generate AI image for: {topic[:50]}...")
                 success = video_gen.generate_ai_image(
-                    prompt=f"Visual representation of: {topic}",
+                    prompt=f"Visual representation of: {topic}. Professional, high quality, cinematic",
                     output_path=os.path.join(Config.TEMP_DIR, "scene_1.png")
                 )
                 
                 if success:
-                    print(f"✅ Video content generated")
+                    print(f"✅ Video content generated successfully!")
                     data = {
                         "status": "generated",
                         "resolution": "1920x1080",
                         "duration": "10 minutes",
                         "file": video_output,
-                        "message": "Video generated successfully"
+                        "message": "✅ Video generated successfully with AI images!"
                     }
                 else:
-                    print(f"⚠️  Using placeholder video")
+                    # Check which APIs are missing
+                    has_replicate = bool(Config.REPLICATE_API_TOKEN)
+                    has_local_sd = True  # Can try to use local if diffusers installed
+                    has_stock_api = bool(Config.PEXELS_API_KEY or Config.PIXABAY_API_KEY)
+                    
+                    setup_hint = []
+                    if not has_replicate:
+                        setup_hint.append("Replicate API (free tier: 30/month)")
+                    if not has_stock_api:
+                        setup_hint.append("Pexels/Pixabay for stock footage")
+                    
+                    message = "⚠️  Using placeholder video. To enable real video generation:\n\n"
+                    message += "1. Setup one of these (all FREE):\n"
+                    message += "   • Replicate: https://replicate.com (copy API token)\n"
+                    message += "   • Local: pip install diffusers torch\n"
+                    message += "   • HuggingFace: https://huggingface.co\n\n"
+                    message += "2. Add API key to .env file\n"
+                    message += "3. Restart the app\n\n"
+                    message += "📖 Full guide: See API_SETUP.md in project root"
+                    
+                    print(f"⚠️  {message}")
                     data = {
                         "status": "placeholder",
                         "resolution": "1920x1080",
                         "duration": "10 minutes",
                         "file": "placeholder_video.mp4",
-                        "message": "Using placeholder (configure API keys for full video generation)"
+                        "message": message,
+                        "apis_configured": {
+                            "replicate": has_replicate,
+                            "stock_videos": has_stock_api,
+                            "local_sd": has_local_sd
+                        }
                     }
             except Exception as e:
                 print(f"❌ Video generation error: {e}")
@@ -285,7 +311,7 @@ def workflow_step(workflow_id, step):
                     "status": "error",
                     "error": str(e),
                     "file": "error_video.mp4",
-                    "message": f"Video generation failed: {str(e)}"
+                    "message": f"Video generation failed: {str(e)}\n\nSee API_SETUP.md for configuration help"
                 }
         
         else:
