@@ -60,7 +60,46 @@ except ImportError:
 from config import Config
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+
+# Persist a stable secret key so sessions remain valid across restarts
+secret_path = os.path.join(os.getcwd(), '.flask_secret')
+if os.getenv('FLASK_SECRET_KEY'):
+    app.secret_key = os.getenv('FLASK_SECRET_KEY')
+else:
+    try:
+        if os.path.exists(secret_path):
+            with open(secret_path, 'rb') as f:
+                app.secret_key = f.read().strip()
+        else:
+            key = os.urandom(24)
+            with open(secret_path, 'wb') as f:
+                f.write(key)
+            app.secret_key = key
+    except Exception:
+        # Fallback to ephemeral key if filesystem not writable
+        app.secret_key = os.urandom(24)
+
+# Session configuration (use server-side filesystem sessions)
+app.config['SESSION_COOKIE_SECURE'] = False  # Allow HTTP for development
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Refresh on each request
+
+# Use Flask-Session to persist sessions on the server side (filesystem)
+try:
+    from flask_session import Session
+    app.config['SESSION_TYPE'] = 'filesystem'
+    session_dir = os.path.join(Config.OUTPUT_DIR, 'flask_session')
+    os.makedirs(session_dir, exist_ok=True)
+    app.config['SESSION_FILE_DIR'] = session_dir
+    app.config['SESSION_PERMANENT'] = True
+    app.config['SESSION_USE_SIGNER'] = True
+    app.config['SESSION_FILE_THRESHOLD'] = 500
+    Session(app)
+except Exception:
+    # If Flask-Session is not installed, fall back to cookie-based sessions
+    print('⚠️ flask-session not available, using default cookie sessions')
 
 # Storage for workflow sessions and user accounts
 WORKFLOWS = {}
@@ -78,6 +117,26 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+
+# Check session before each request
+@app.before_request
+def check_session():
+    """Check session validity before processing request"""
+    session.permanent = True  # Make session persistent
+    
+    # Routes that don't need authentication
+    public_routes = ['login', 'signup', 'static']
+    
+    if request.endpoint and request.endpoint not in public_routes:
+        # All other routes require login
+        if 'user_id' not in session:
+            if request.path.startswith('/api/'):
+                # API requests return JSON error
+                return jsonify({'error': 'Unauthorized - please login'}), 401
+            else:
+                # Page requests redirect to login
+                return redirect(url_for('login'))
+
 
 # ======================== AUTHENTICATION ROUTES ========================
 
