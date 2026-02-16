@@ -61,24 +61,25 @@ from config import Config
 
 app = Flask(__name__)
 
-# Persist a stable secret key so sessions remain valid across restarts
-secret_path = os.path.join(os.getcwd(), '.flask_secret')
+# Generate stable secret key (must be a string, not bytes)
 if os.getenv('FLASK_SECRET_KEY'):
     app.secret_key = os.getenv('FLASK_SECRET_KEY')
 else:
+    # For local development: persist secret as hex string to file
+    secret_path = os.path.join(os.getcwd(), '.flask_secret')
     try:
         if os.path.exists(secret_path):
-            with open(secret_path, 'rb') as f:
-                key = f.read().strip()
-                app.secret_key = key.decode('utf-8') if isinstance(key, bytes) else key
+            with open(secret_path, 'r') as f:
+                app.secret_key = f.read().strip()
         else:
-            key = os.urandom(24)
-            with open(secret_path, 'wb') as f:
-                f.write(key)
-            app.secret_key = key.hex()  # Convert bytes to hex string
+            # Generate new secret and store as hex string (not bytes)
+            secret_hex = os.urandom(24).hex()
+            with open(secret_path, 'w') as f:
+                f.write(secret_hex)
+            app.secret_key = secret_hex
     except Exception:
-        # Fallback to ephemeral key if filesystem not writable
-        app.secret_key = os.urandom(24).hex()  # Convert to hex string
+        # If file operations fail, generate ephemeral key
+        app.secret_key = os.urandom(24).hex()
 
 # Session configuration (use server-side filesystem sessions)
 # Use secure cookies on production, allow HTTP for development
