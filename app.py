@@ -357,6 +357,14 @@ def workflow_step(workflow_id, step):
                     "message": f"❌ Video generation failed: {str(e)}"
                 }
         
+        elif step == 'upload':
+            # Upload step doesn't generate anything, just confirms readiness
+            print(f"📤 Upload step ready for: {topic}")
+            data = {
+                "status": "ready",
+                "message": "✅ Ready to upload to YouTube\n\nAll previous steps have been completed. Click Approve to proceed with uploading your video."
+            }
+        
         else:
             return jsonify({'error': f'Unknown step: {step}'}), 400
         

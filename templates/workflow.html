@@ -360,7 +360,7 @@
                     </div>
                     <div class="step-actions" id="actions-${step}">
                         <button class="button btn-generate" onclick="generateStep('${step}')">
-                            Generate
+                            ${step === 'upload' ? 'Prepare Upload' : 'Generate'}
                         </button>
                     </div>
                 </div>
