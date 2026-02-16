@@ -69,18 +69,20 @@ else:
     try:
         if os.path.exists(secret_path):
             with open(secret_path, 'rb') as f:
-                app.secret_key = f.read().strip()
+                key = f.read().strip()
+                app.secret_key = key.decode('utf-8') if isinstance(key, bytes) else key
         else:
             key = os.urandom(24)
             with open(secret_path, 'wb') as f:
                 f.write(key)
-            app.secret_key = key
+            app.secret_key = key.hex()  # Convert bytes to hex string
     except Exception:
         # Fallback to ephemeral key if filesystem not writable
-        app.secret_key = os.urandom(24)
+        app.secret_key = os.urandom(24).hex()  # Convert to hex string
 
 # Session configuration (use server-side filesystem sessions)
-app.config['SESSION_COOKIE_SECURE'] = False  # Allow HTTP for development
+# Use secure cookies on production, allow HTTP for development
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
