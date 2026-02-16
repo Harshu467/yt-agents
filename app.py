@@ -494,7 +494,7 @@ def video_history():
 @app.route('/api/videos/<video_id>', methods=['GET'])
 @login_required
 def serve_video(video_id):
-    """Serve a video file for download/streaming"""
+    """Serve a video file for download/streaming with proper streaming support"""
     storage = get_video_storage()
     filepath = storage.get_video_file(video_id)
     
@@ -502,13 +502,19 @@ def serve_video(video_id):
         return jsonify({'error': 'Video not found'}), 404
     
     try:
-        return send_file(
+        # Use send_file with proper streaming for video playback
+        response = send_file(
             filepath,
             mimetype='video/mp4',
             as_attachment=False,
             download_name=f'{video_id}.mp4'
         )
+        # Add headers for browser video playback support
+        response.headers['Accept-Ranges'] = 'bytes'
+        response.headers['Cache-Control'] = 'public, max-age=3600'
+        return response
     except Exception as e:
+        print(f"❌ Error serving video: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/videos/<video_id>/metadata', methods=['GET'])
