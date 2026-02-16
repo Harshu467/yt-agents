@@ -81,28 +81,13 @@ else:
         # If file operations fail, generate ephemeral key
         app.secret_key = os.urandom(24).hex()
 
-# Session configuration (use server-side filesystem sessions)
-# Use secure cookies on production, allow HTTP for development
+# Session configuration using Flask's built-in cookie-based sessions
+# (Simple, reliable, and works on Render's ephemeral filesystem)
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
-app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Refresh on each request
-
-# Use Flask-Session to persist sessions on the server side (filesystem)
-try:
-    from flask_session import Session
-    app.config['SESSION_TYPE'] = 'filesystem'
-    session_dir = os.path.join(Config.OUTPUT_DIR, 'flask_session')
-    os.makedirs(session_dir, exist_ok=True)
-    app.config['SESSION_FILE_DIR'] = session_dir
-    app.config['SESSION_PERMANENT'] = True
-    app.config['SESSION_USE_SIGNER'] = True
-    app.config['SESSION_FILE_THRESHOLD'] = 500
-    Session(app)
-except Exception:
-    # If Flask-Session is not installed, fall back to cookie-based sessions
-    print('⚠️ flask-session not available, using default cookie sessions')
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
 # Storage for workflow sessions and user accounts
 WORKFLOWS = {}
