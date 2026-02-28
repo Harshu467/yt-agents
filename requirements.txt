@@ -41,7 +41,8 @@ google-api-python-client==2.100.0
 
 # Async & Concurrency
 aiofiles==23.2.1
-boto3==1.30.0
+# boto3 release is updated frequently; allow any 1.x version to avoid install errors
+boto3>=1.30.0,<2.0
 psycopg2-binary==2.9.7
 google-cloud-storage==2.13.0
 google-cloud-firestore==2.12.0
