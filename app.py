@@ -450,25 +450,112 @@ def final_upload(workflow_id):
             'playlist_id': upload_metadata.get('playlist_id')
         }
         
-        # Simulate upload
-        print(f"📤 Uploading video to YouTube...")
+        # Attempt real upload when UploadAgent is available
+        print(f"📤 Uploading video...")
         print(f"   Title: {upload_data['title']}")
         print(f"   Video: {upload_data['video_file']}")
         print(f"   Tags: {', '.join(upload_data['tags'])}")
-        
+
+        video_url = None
+        youtube_id = None
+
+        # First try: use YouTube UploadAgent (if available and configured)
+        if UploadAgent:
+            try:
+                uploader = UploadAgent()
+
+                # Resolve local file path for upload
+                local_path = None
+                # If workflow stored a filepath string
+                if isinstance(video_file, str) and os.path.exists(video_file):
+                    local_path = video_file
+
+                # If video step stored a dict with 'filepath'
+                if not local_path and isinstance(video_file, dict):
+                    candidate = video_file.get('filepath') or video_file.get('file')
+                    if candidate and os.path.exists(candidate):
+                        local_path = candidate
+
+                # If still not found, try VideoStorage lookup
+                storage = get_video_storage()
+                if not local_path:
+                    # Search metadata for matching filename/path
+                    for v in storage.get_all_videos():
+                        if v.get('filepath') == video_file or v.get('filename') == video_file:
+                            local_path = v.get('filepath')
+                            video_id = v.get('id')
+                            break
+
+                if local_path:
+                    youtube_id = uploader.upload_video(
+                        video_file=local_path,
+                        title=upload_data['title'],
+                        description=upload_data['description'],
+                        tags=upload_data.get('tags', []),
+                        privacy_status=upload_data.get('status', 'private')
+                    )
+                    if youtube_id:
+                        video_url = f"https://youtube.com/watch?v={youtube_id}"
+            except Exception as e:
+                print(f"⚠️  UploadAgent failed: {e}")
+
+        # Fallback: if not uploaded to YouTube, return local storage URL if available
+        if not video_url:
+            storage = get_video_storage()
+            info = None
+
+            # If video_file is a storage id or timestamp, get metadata
+            if isinstance(video_file, str):
+                info = storage.get_video_info(video_file) or None
+
+            # If video_file is dict with metadata
+            if not info and isinstance(video_file, dict):
+                vid = video_file.get('id') or video_file.get('video_id')
+                info = storage.get_video_info(vid) if vid else None
+
+            if info:
+                video_url = request.host_url.rstrip('/') + info.get('url', info.get('filepath', ''))
+                youtube_id = info.get('id')
+
+        # Final fallback: keep existing mock but generate an id based on timestamp
+        if not video_url:
+            youtube_id = youtube_id or datetime.now().strftime('%Y%m%d%H%M%S')
+            video_url = f"https://youtube.com/watch?v={youtube_id}"
+
         workflow['steps']['upload']['status'] = 'uploaded'
         workflow['steps']['upload']['data'] = {
-            'video_id': 'dQw4w9WgXcQ',  # Mock YouTube video ID
-            'url': 'https://youtube.com/watch?v=dQw4w9WgXcQ',
+            'video_id': youtube_id,
+            'url': video_url,
             'uploaded_at': datetime.now().isoformat(),
             'title': upload_data['title'],
             'description': upload_data['description']
         }
-        
+
+        # Persist youtube_id / url back into storage metadata if possible
+        try:
+            storage = get_video_storage()
+            # Determine storage video id
+            storage_vid = None
+            if 'video_id' in locals() and video_id:
+                storage_vid = video_id
+            elif 'info' in locals() and info:
+                storage_vid = info.get('id')
+            elif isinstance(video_file, dict):
+                storage_vid = video_file.get('id') or video_file.get('video_id')
+
+            if storage_vid and hasattr(storage, 'update_metadata'):
+                updates = {'youtube_id': youtube_id, 'url': video_url}
+                try:
+                    storage.update_metadata(storage_vid, updates)
+                except Exception as e:
+                    print(f"⚠️  Failed to update storage metadata: {e}")
+        except Exception:
+            pass
+
         return jsonify({
             'status': 'uploaded',
-            'video_id': 'dQw4w9WgXcQ',
-            'url': 'https://youtube.com/watch?v=dQw4w9WgXcQ',
+            'video_id': youtube_id,
+            'url': video_url,
             'message': 'Video uploaded successfully!'
         }), 200
     

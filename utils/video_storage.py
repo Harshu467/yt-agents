@@ -8,6 +8,29 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 from config import Config
+import os
+
+# Optional Supabase adapter
+try:
+    from .supabase_storage import create_supabase_storage_if_configured
+except Exception:
+    create_supabase_storage_if_configured = None
+
+# Optional S3+Postgres adapter
+try:
+    from .s3_storage import create_s3_storage_if_configured
+except Exception:
+    create_s3_storage_if_configured = None
+
+try:
+    from .sqlite_storage import create_sqlite_storage_if_configured
+except Exception:
+    create_sqlite_storage_if_configured = None
+
+try:
+    from .firebase_storage import create_firebase_storage_if_configured
+except Exception:
+    create_firebase_storage_if_configured = None
 
 
 class VideoStorage:
@@ -186,5 +209,37 @@ def get_video_storage() -> VideoStorage:
     """Get or create global video storage instance"""
     global _storage_instance
     if _storage_instance is None:
+        # Prefer Firebase (free tier available) when configured
+        if create_firebase_storage_if_configured and os.getenv('FIREBASE_STORAGE_BUCKET'):
+            firebase = create_firebase_storage_if_configured()
+            if firebase:
+                _storage_instance = firebase
+                return _storage_instance
+
+        # Prefer S3+Postgres for high performance (if configured)
+        if create_s3_storage_if_configured and os.getenv('AWS_S3_BUCKET') and os.getenv('DATABASE_URL'):
+            s3s = create_s3_storage_if_configured()
+            if s3s:
+                _storage_instance = s3s
+                return _storage_instance
+
+        # Next prefer Supabase if configured (managed Postgres + storage)
+        if create_supabase_storage_if_configured and os.getenv('SUPABASE_URL') and os.getenv('SUPABASE_KEY'):
+            supa = create_supabase_storage_if_configured()
+            if supa:
+                _storage_instance = supa
+                return _storage_instance
+
+        # Next prefer SQLite local DB for metadata when remote backends aren't available
+        if create_sqlite_storage_if_configured:
+            try:
+                sqlite_store = create_sqlite_storage_if_configured()
+                if sqlite_store:
+                    _storage_instance = sqlite_store
+                    return _storage_instance
+            except Exception:
+                pass
+
+        # Fallback: local filesystem + JSON metadata
         _storage_instance = VideoStorage()
     return _storage_instance
