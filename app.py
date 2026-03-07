@@ -351,10 +351,18 @@ def workflow_step(workflow_id, step):
                 import traceback
                 traceback.print_exc()
                 
+                # Provide helpful error message to user
+                error_message = str(e)
+                if "Supabase" in error_message:
+                    error_message += "\n\n💡 Supabase setup help:\n"
+                    error_message += "   • Validate: python3 scripts/validate_supabase.py\n"
+                    error_message += "   • Setup guide: SUPABASE_TROUBLESHOOTING.md\n"
+                    error_message += "   • Quick fix: SUPABASE_ERROR_QUICK_FIX.md"
+                
                 data = {
                     "status": "error",
                     "error": str(e),
-                    "message": f"❌ Video generation failed: {str(e)}"
+                    "message": f"❌ Video generation failed:\n{error_message}"
                 }
         
         elif step == 'upload':

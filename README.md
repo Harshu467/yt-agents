@@ -213,7 +213,48 @@ All completely free and open-source:
 - `tweepy` - Twitter API
 - `praw` - Reddit API
 
-## 🚧 Current Status
+## � Troubleshooting
+
+### Supabase Upload Errors
+
+If you see "Failed to upload video to Supabase storage":
+
+1. **Quick Fix:** Run the validation script
+   ```bash
+   python3 scripts/validate_supabase.py
+   ```
+
+2. **Quick Reference:** See [SUPABASE_ERROR_QUICK_FIX.md](SUPABASE_ERROR_QUICK_FIX.md)
+
+3. **Full Guide:** See [SUPABASE_TROUBLESHOOTING.md](SUPABASE_TROUBLESHOOTING.md)
+
+### Schema Migrations Error
+
+If you see `relation "supabase_migrations.schema_migrations" does not exist`:
+
+1. **Setup videos table:**
+   ```bash
+   python3 scripts/setup_supabase_table.py
+   ```
+
+2. **Then follow the SQL guidance shown**
+
+3. **Check status:**
+   ```bash
+   python3 scripts/setup_supabase_table.py --status
+   ```
+
+See [SUPABASE_SCHEMA_MIGRATIONS_ERROR.md](SUPABASE_SCHEMA_MIGRATIONS_ERROR.md) for details.
+
+### Common Issues
+
+- **Missing credentials** → Set `SUPABASE_URL` and `SUPABASE_KEY`
+- **Bucket doesn't exist** → Create "videos" bucket in Storage
+- **Wrong key type** → Use "service_role" key, not "anon"
+- **Videos table missing** → Run `python3 scripts/setup_supabase_table.py`
+- **Permission denied** → Make bucket public or configure RLS
+
+## �🚧 Current Status
 
 - [x] Project structure
 - [ ] Agent implementations
