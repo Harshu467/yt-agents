@@ -130,6 +130,27 @@ class S3PostgresStorage:
             cur.execute('DELETE FROM videos WHERE id = %s;', (video_id,))
             self.conn.commit()
         return True
+    
+    def delete_all_videos(self) -> Dict[str, int]:
+        """Delete all videos and their metadata from S3 and Postgres"""
+        deleted_count = 0
+        failed_count = 0
+        
+        # Get all videos
+        all_videos = self.get_all_videos()
+        
+        for video in all_videos:
+            video_id = video.get('id')
+            if video_id and self.delete_video(video_id):
+                deleted_count += 1
+            else:
+                failed_count += 1
+        
+        return {
+            'deleted': deleted_count,
+            'failed': failed_count,
+            'total': len(all_videos)
+        }
 
     def update_metadata(self, video_id: str, updates: Dict) -> Optional[Dict]:
         """Update metadata fields in Postgres for a given video id."""

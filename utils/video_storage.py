@@ -140,6 +140,25 @@ class VideoStorage:
             return True
         return False
     
+    def delete_all_videos(self) -> Dict[str, int]:
+        """Delete all videos and their metadata"""
+        deleted_count = 0
+        failed_count = 0
+        
+        video_ids = list(self.metadata.keys())  # Create a copy of keys
+        
+        for video_id in video_ids:
+            if self.delete_video(video_id):
+                deleted_count += 1
+            else:
+                failed_count += 1
+        
+        return {
+            'deleted': deleted_count,
+            'failed': failed_count,
+            'total': len(video_ids)
+        }
+    
     def create_blank_video(self, topic: str, duration: int = 10) -> bytes:
         """
         Create a basic MP4 video file with a single frame

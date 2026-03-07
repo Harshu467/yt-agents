@@ -653,6 +653,22 @@ def delete_video(video_id):
     else:
         return jsonify({'error': 'Video not found'}), 404
 
+@app.route('/api/videos/delete-all', methods=['DELETE'])
+@login_required
+def delete_all_videos():
+    """Delete all videos and their history"""
+    storage = get_video_storage()
+    
+    result = storage.delete_all_videos()
+    
+    return jsonify({
+        'status': 'completed',
+        'message': f'Deleted {result["deleted"]} videos, {result["failed"]} failed',
+        'deleted': result['deleted'],
+        'failed': result['failed'],
+        'total': result['total']
+    })
+
 if __name__ == '__main__':
     import os
     debug_mode = os.getenv('FLASK_ENV', 'development') == 'development'

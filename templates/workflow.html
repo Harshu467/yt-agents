@@ -290,7 +290,12 @@
         
         <!-- Video History/Gallery Section -->
         <div style="background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1); padding: 30px; margin-top: 30px;">
-            <h2 style="color: #333; margin-bottom: 20px;">📹 Generated Videos History</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #333; margin: 0;">📹 Generated Videos History</h2>
+                <button id="deleteAllBtn" class="button" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; display: none;" onclick="deleteAllVideos()">
+                    🗑️ Delete All Videos
+                </button>
+            </div>
             <div id="videoHistory" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
                 <p style="grid-column: 1/-1; color: #999; text-align: center;">Loading video history...</p>
             </div>
@@ -692,6 +697,14 @@
                 const response = await fetch('/api/videos/history');
                 const data = await response.json();
                 
+                // Show/hide delete all button based on video count
+                const deleteAllBtn = document.getElementById('deleteAllBtn');
+                if (data.videos && data.videos.length > 0) {
+                    deleteAllBtn.style.display = 'block';
+                } else {
+                    deleteAllBtn.style.display = 'none';
+                }
+                
                 if (!data.videos || data.videos.length === 0) {
                     document.getElementById('videoHistory').innerHTML = `<p style="grid-column: 1/-1; color: #999; text-align: center;">No videos generated yet</p>`;
                     return;
@@ -780,6 +793,25 @@
                 }
             } catch (error) {
                 console.error('Error deleting video:', error);
+            }
+        }
+        
+        async function deleteAllVideos() {
+            if (!confirm('Are you sure you want to delete ALL videos? This action cannot be undone!')) return;
+            
+            try {
+                const response = await fetch('/api/videos/delete-all', { method: 'DELETE' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(`Deleted ${result.deleted} videos successfully!`);
+                    loadVideoHistory();
+                } else {
+                    alert('Error deleting videos');
+                }
+            } catch (error) {
+                console.error('Error deleting all videos:', error);
+                alert('Error deleting videos');
             }
         }
         

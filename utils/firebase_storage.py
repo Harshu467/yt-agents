@@ -91,6 +91,27 @@ class FirebaseStorage:
         blob.delete()
         self.collection.document(video_id).delete()
         return True
+    
+    def delete_all_videos(self) -> Dict[str, int]:
+        """Delete all videos and their metadata from Firebase"""
+        deleted_count = 0
+        failed_count = 0
+        
+        # Get all videos
+        all_videos = self.get_all_videos()
+        
+        for video in all_videos:
+            video_id = video.get('id')
+            if video_id and self.delete_video(video_id):
+                deleted_count += 1
+            else:
+                failed_count += 1
+        
+        return {
+            'deleted': deleted_count,
+            'failed': failed_count,
+            'total': len(all_videos)
+        }
 
     def update_metadata(self, video_id: str, updates: Dict) -> Optional[Dict]:
         doc_ref = self.collection.document(video_id)
