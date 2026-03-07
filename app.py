@@ -597,12 +597,22 @@ def video_history():
 @app.route('/api/videos/<video_id>', methods=['GET'])
 @login_required
 def serve_video(video_id):
-    """Serve a video file for download/streaming with proper streaming support"""
+    """Serve a video file for download/streaming with proper streaming support.  
+    if the storage backend returns a URL (e.g. Supabase), redirect instead of
+    attempting to open it as a local file."""
     storage = get_video_storage()
     filepath = storage.get_video_file(video_id)
     
     if not filepath:
         return jsonify({'error': 'Video not found'}), 404
+    
+    # If we got a remote URL, simply redirect the client there so the browser
+    # can stream directly from the storage provider.  This avoids trying to
+    # open the URL as a file path, which previously produced errors like:
+    #   [Errno 2] No such file or directory: '/opt/render/.../https://...'
+    if isinstance(filepath, str) and filepath.startswith(('http://', 'https://')):
+        from flask import redirect
+        return redirect(filepath, code=302)
     
     try:
         # Use send_file with proper streaming for video playback

@@ -163,29 +163,38 @@ class VideoStorage:
                 tmp_path = tmp.name
             
             try:
-                # Try using ffmpeg to create a basic video
-                # This creates a 2-second black video (reusable)
+                # Try using ffmpeg to create a basic video of the requested
+                # duration.  ffmpeg is not installed in some test environments,
+                # which is why older code always produced a 0‑second file.
                 cmd = [
-                    'ffmpeg', '-f', 'lavfi', '-i', 'color=c=black:s=1920x1080:d=2',
-                    '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=mono:d=2',
+                    'ffmpeg', '-f', 'lavfi', f'-i', f'color=c=black:s=1920x1080:d={duration}',
+                    '-f', 'lavfi', f'-i', f'anullsrc=r=44100:cl=mono:d={duration}',
                     '-c:v', 'libx264', '-preset', 'fast',
                     '-c:a', 'aac', '-shortest',
                     '-y', tmp_path
                 ]
-                
-                subprocess.run(cmd, capture_output=True, timeout=10)
-                
-                # Read the generated video
-                with open(tmp_path, 'rb') as f:
-                    video_bytes = f.read()
-                
-                os.unlink(tmp_path)
-                return video_bytes
+
+                proc = subprocess.run(cmd, capture_output=True, timeout=10)
+                if proc.returncode == 0 and os.path.exists(tmp_path):
+                    # Successfully generated video
+                    with open(tmp_path, 'rb') as f:
+                        video_bytes = f.read()
+                    os.unlink(tmp_path)
+                    return video_bytes
+                else:
+                    # ffmpeg failed (missing binary or other error)
+                    print("⚠️  ffmpeg not available or failed – using tiny placeholder")
+                    if os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+                    # Fall through to minimal header below
             
-            except:
+            except Exception as e:
+                print(f"⚠️  ffmpeg invocation error: {e}")
                 os.unlink(tmp_path) if os.path.exists(tmp_path) else None
-                # Return a minimal MP4 header as fallback
-                return self._create_minimal_mp4()
+                # Continue to minimal header
+            # Return a minimal MP4 header as fallback
+            print("⚠️  Returning minimal placeholder video (duration may be 0s).")
+            return self._create_minimal_mp4()
         
         except Exception as e:
             print(f"⚠️  Video creation failed: {e}, using minimal fallback")

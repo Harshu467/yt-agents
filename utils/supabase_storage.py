@@ -221,12 +221,19 @@ class SupabaseStorage:
         return resp.status_code in (200, 204) and resp2.status_code in (200, 204)
 
     def create_blank_video(self, topic: str, duration: int = 10) -> bytes:
-        # Reuse a minimal MP4 fallback similar to local VideoStorage
-        return (
-            b'\x00\x00\x00\x20ftypisom\x00\x00\x00\x00'
-            b'isomiso2avc1mp41\x00\x00\x00\x00'
-            b'mdat' + b'\x00' * 100
-        )
+        # Delegate to the shared helper in video_storage so all backends behave
+        # consistently and respect the requested duration.  This avoids a
+        # zero-second placeholder when ffmpeg is missing.
+        try:
+            from .video_storage import VideoStorage
+            return VideoStorage().create_blank_video(topic, duration)
+        except Exception:
+            # Fallback minimal header if something goes wrong
+            return (
+                b'\x00\x00\x00\x20ftypisom\x00\x00\x00\x00'
+                b'isomiso2avc1mp41\x00\x00\x00\x00'
+                b'mdat' + b'\x00' * 100
+            )
 
     def validate_configuration(self) -> Dict:
         """

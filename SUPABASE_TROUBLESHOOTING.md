@@ -222,6 +222,33 @@ If using custom bucket name, set:
 export SUPABASE_STORAGE_BUCKET='your-bucket-name'
 ```
 
+### 8. 📁 Serving Remote URLs
+
+**Symptoms:**
+- Server logs show an error similar to:
+  ```
+  [Errno 2] No such file or directory: '/opt/render/project/src/https://...'
+  ```
+- Clicking the video link returns “This video isn’t available any more.”
+
+This happens when the storage backend (e.g. Supabase) returns a **URL**
+instead of a local filepath. The Flask `send_file` helper then tries to open
+that string as a filesystem path.
+
+**Fix:**
+- The application now redirects to remote URLs automatically. Update to the
+  latest code or modify your own `serve_video` route:
+  ```python
+  filepath = storage.get_video_file(video_id)
+  if filepath and filepath.startswith(('http://', 'https://')):
+      return redirect(filepath)
+  ```
+- Ensure the bucket is public or that signed URLs are valid. Expired signed
+  links will show “video isn’t available”.
+
+Retry your workflow after upgrading and confirm the link points to a working
+Supabase object.
+
 ---
 
 ## Step-by-Step Setup
