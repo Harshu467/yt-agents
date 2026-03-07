@@ -257,41 +257,36 @@ def workflow_step(workflow_id, step):
     
     # POST - Generate step content
     try:
-        if step == 'research':
+        elif step == 'research':
             print(f"📚 Researching: {topic}")
             research_agent = ResearchAgent()
-            # Since research() method doesn't exist, use mock data
-            data = {
-                "summary": f"Research findings on {topic}: Key insights about future trends.",
-                "key_points": [
-                    "Advanced reasoning capabilities",
-                    "Multimodal understanding",
-                    "Open-source accessibility",
-                    "Ethical frameworks"
-                ],
-                "sources": ["OpenAI", "DeepMind", "Google Research"]
-            }
+            data = research_agent.research_topic(topic)
         
         elif step == 'script':
             print(f"✍️  Writing script for: {topic}")
             script_agent = ScriptWriterAgent()
-            script_data = script_agent.write_script(topic, {})
-            data = {
-                "intro": script_data.get('intro', f"Welcome to {topic}"),
-                "segments": script_data.get('segments', []),
-                "outro": script_data.get('outro', "Thanks for watching!")
-            }
+            # Get research data from previous step if available
+            research_data = workflow['steps']['research']['data'] or {}
+            data = script_agent.write_script(topic, research_data)
         
         elif step == 'metadata':
             print(f"🏷️  Generating metadata for: {topic}")
             metadata_agent = MetadataAgent()
-            # Mock metadata generation
-            data = {
-                "title": f"{topic}: Complete Guide 2025",
-                "description": f"Explore the key aspects of {topic}",
-                "tags": ["AI", "technology", "future", "tutorial"],
-                "keywords": ["AI 2025", topic]
-            }
+            # Get script data if available for better metadata
+            script_data = workflow['steps']['script']['data'] or {}
+            research_data = workflow['steps']['research']['data'] or {}
+            
+            # Extract script summary and key points
+            script_summary = ""
+            if script_data:
+                intro = script_data.get('intro', '')
+                segments = script_data.get('segments', [])
+                outro = script_data.get('outro', '')
+                script_summary = f"{intro} {' '.join([s.get('text', '') for s in segments])} {outro}"[:200]
+            
+            key_points = research_data.get('key_points', []) if research_data else []
+            
+            data = metadata_agent.generate_metadata(topic, script_summary, key_points)
         
         elif step == 'video':
             print(f"🎬 Creating video for: {topic}")
