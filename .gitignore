@@ -42,6 +42,7 @@ client_secrets.json
 # Output files
 output/
 temp/
+example_results/
 *.mp4
 *.wav
 *.png
