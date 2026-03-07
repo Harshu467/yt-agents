@@ -257,7 +257,7 @@ def workflow_step(workflow_id, step):
     
     # POST - Generate step content
     try:
-        elif step == 'research':
+        if step == 'research':
             print(f"📚 Researching: {topic}")
             research_agent = ResearchAgent()
             data = research_agent.research_topic(topic)
