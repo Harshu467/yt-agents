@@ -556,31 +556,42 @@
             let html = '';
             
             if (step === 'research') {
+                const keyPoints = Array.isArray(data?.key_points) ? data.key_points : [];
                 html = `
                     <h4>Summary</h4>
-                    <p>${data.summary}</p>
+                    <p>${data?.summary || 'No summary available yet.'}</p>
                     <h4 style="margin-top: 15px;">Key Points</h4>
                     <ul>
-                        ${data.key_points.map(p => `<li>${p}</li>`).join('')}
+                        ${keyPoints.length ? keyPoints.map(p => `<li>${p}</li>`).join('') : '<li>No key points available.</li>'}
                     </ul>
                 `;
             } else if (step === 'script') {
+                const segments = Array.isArray(data?.segments) ? data.segments : [];
+                const scenes = Array.isArray(data?.scenes) ? data.scenes : [];
+                const scriptItems = segments.length
+                    ? segments.map(s => `<li><strong>${s.title || 'Segment'}</strong> (${s.duration || 'N/A'}s)</li>`).join('')
+                    : scenes.length
+                        ? scenes.map((s, idx) => `<li><strong>Scene ${idx + 1}</strong> ${s.narration ? `- ${s.narration.substring(0, 90)}...` : ''}</li>`).join('')
+                        : '<li>No scene breakdown available.</li>';
                 html = `
-                    <h4>Intro</h4>
-                    <p>${data.intro}</p>
-                    <h4 style="margin-top: 15px;">Segments</h4>
+                    <h4>Hook</h4>
+                    <p>${data?.hook || data?.intro || 'No hook available.'}</p>
+                    <h4 style="margin-top: 15px;">Main Script</h4>
+                    <p>${data?.body || 'No script body available.'}</p>
+                    <h4 style="margin-top: 15px;">Scenes / Segments</h4>
                     <ul>
-                        ${data.segments.map(s => `<li><strong>${s.title}</strong> (${s.duration}s)</li>`).join('')}
+                        ${scriptItems}
                     </ul>
                 `;
             } else if (step === 'metadata') {
+                const tags = Array.isArray(data?.tags) ? data.tags : [];
                 html = `
                     <h4>Title</h4>
-                    <p>${data.title}</p>
+                    <p>${data?.title || 'No title generated.'}</p>
                     <h4 style="margin-top: 15px;">Description</h4>
-                    <p>${data.description}</p>
+                    <p>${data?.description || 'No description generated.'}</p>
                     <h4 style="margin-top: 15px;">Tags</h4>
-                    <p>${data.tags.join(', ')}</p>
+                    <p>${tags.length ? tags.join(', ') : 'No tags generated.'}</p>
                 `;
             } else if (step === 'video') {
                 const statusColor = data.status === 'generated' ? '#d4edda' : 
