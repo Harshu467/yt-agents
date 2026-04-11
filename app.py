@@ -205,7 +205,8 @@ def index():
 def start_workflow():
     """Initialize a new video creation workflow"""
     data = request.json
-    topic = data.get('topic', 'AI in 2025')
+    topic = data.get('topic', 'AI in 2025').strip()
+    description = data.get('description', '').strip()
     
     # Create unique session
     workflow_id = str(uuid.uuid4())[:8]
@@ -213,6 +214,7 @@ def start_workflow():
     WORKFLOWS[workflow_id] = {
         'id': workflow_id,
         'topic': topic,
+        'description': description,
         'created_at': datetime.now().isoformat(),
         'steps': {
             'research': {'status': 'pending', 'data': None},
@@ -245,6 +247,8 @@ def workflow_step(workflow_id, step):
     
     workflow = WORKFLOWS[workflow_id]
     topic = workflow['topic']
+    description = workflow.get('description', '')
+    topic_context = f"{topic}\n\nUser Description:\n{description}" if description else topic
     
     if request.method == 'GET':
         # Return current step data
@@ -260,14 +264,14 @@ def workflow_step(workflow_id, step):
         if step == 'research':
             print(f"📚 Researching: {topic}")
             research_agent = ResearchAgent()
-            data = research_agent.research_topic(topic)
+            data = research_agent.research_topic(topic_context)
         
         elif step == 'script':
             print(f"✍️  Writing script for: {topic}")
             script_agent = ScriptWriterAgent()
             # Get research data from previous step if available
             research_data = workflow['steps']['research']['data'] or {}
-            data = script_agent.write_script(topic, research_data)
+            data = script_agent.write_script(topic_context, research_data)
         
         elif step == 'metadata':
             print(f"🏷️  Generating metadata for: {topic}")
@@ -286,7 +290,7 @@ def workflow_step(workflow_id, step):
             
             key_points = research_data.get('key_points', []) if research_data else []
             
-            data = metadata_agent.generate_metadata(topic, script_summary, key_points)
+            data = metadata_agent.generate_metadata(topic_context, script_summary, key_points)
         
         elif step == 'video':
             print(f"🎬 Creating video for: {topic}")
@@ -306,7 +310,7 @@ def workflow_step(workflow_id, step):
                 
                 ai_image_path = os.path.join(Config.TEMP_DIR, "scene_1.png")
                 has_ai_image = video_gen.generate_ai_image(
-                    prompt=f"Visual representation of: {topic}. Professional, high quality, cinematic",
+                    prompt=f"Visual representation of: {topic_context}. Professional, high quality, cinematic",
                     output_path=ai_image_path
                 )
                 
@@ -365,7 +369,7 @@ def workflow_step(workflow_id, step):
             print(f"📤 Upload step ready for: {topic}")
             data = {
                 "status": "ready",
-                "message": "✅ Ready to upload to YouTube\n\nAll previous steps have been completed. Click Approve to proceed with uploading your video."
+                "message": "✅ Ready to upload to YouTube\n\nAll previous steps are complete. Configure channel options, click Accept Upload Setup, then use Upload to YouTube."
             }
         
         else:
@@ -434,7 +438,7 @@ def final_upload(workflow_id):
         upload_metadata = request.json or {}
         
         # Check if all steps are approved
-        for step in ['research', 'script', 'metadata', 'video']:
+        for step in ['research', 'script', 'metadata', 'video', 'upload']:
             if workflow['steps'][step]['status'] != 'approved':
                 return jsonify({'error': f'Step {step} not approved'}), 400
         
@@ -463,7 +467,9 @@ def final_upload(workflow_id):
             # canonical id path for storage lookups below.
             'video_file': video_file,
             'status': upload_metadata.get('status', 'public'),
-            'playlist_id': upload_metadata.get('playlist_id')
+            'playlist_id': upload_metadata.get('playlist_id'),
+            'channel_name': upload_metadata.get('channel_name', '').strip(),
+            'notify_subscribers': bool(upload_metadata.get('notify_subscribers', True))
         }
         
         # Attempt real upload when UploadAgent is available

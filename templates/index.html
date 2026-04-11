@@ -271,6 +271,7 @@
             e.preventDefault();
             
             const topic = document.getElementById('topic').value;
+            const description = document.getElementById('description').value;
             
             try {
                 const response = await fetch('/start-workflow', {
@@ -278,7 +279,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ topic })
+                    body: JSON.stringify({ topic, description })
                 });
                 
                 const data = await response.json();
