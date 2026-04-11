@@ -283,10 +283,13 @@ def workflow_step(workflow_id, step):
             # Extract script summary and key points
             script_summary = ""
             if script_data:
-                intro = script_data.get('intro', '')
-                segments = script_data.get('segments', [])
-                outro = script_data.get('outro', '')
-                script_summary = f"{intro} {' '.join([s.get('text', '') for s in segments])} {outro}"[:200]
+                if script_data.get('body'):
+                    script_summary = script_data.get('body', '')[:200]
+                else:
+                    intro = script_data.get('intro', '')
+                    segments = script_data.get('segments', [])
+                    outro = script_data.get('outro', '')
+                    script_summary = f"{intro} {' '.join([s.get('text', '') for s in segments])} {outro}"[:200]
             
             key_points = research_data.get('key_points', []) if research_data else []
             

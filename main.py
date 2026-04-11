@@ -43,12 +43,23 @@ class YouTubeAutomationPipeline:
         
         print("✅ All agents initialized\n")
     
-    def create_video_workflow(self, custom_topic: str = None) -> bool:
+    def create_video_workflow(
+        self,
+        custom_topic: str = None,
+        script_style: str = "cinematic",
+        enable_voiceover: bool = True,
+        enable_subtitles: bool = True,
+        enable_thumbnail: bool = True
+    ) -> bool:
         """
         Complete workflow: Trend → Research → Script → Voice → Video → Upload
         
         Args:
             custom_topic: Optional custom topic (skip trend detection)
+            script_style: Script writing style
+            enable_voiceover: Generate voiceover audio when True
+            enable_subtitles: Generate subtitles when True and audio exists
+            enable_thumbnail: Generate thumbnail when True
         
         Returns:
             True if successful
@@ -81,7 +92,7 @@ class YouTubeAutomationPipeline:
         # STEP 3: Script Writing
         print("STEP 3: SCRIPT WRITING")
         print("-" * 70)
-        script = self.script_writer.write_script(topic, research, style="cinematic")
+        script = self.script_writer.write_script(topic, research, style=script_style)
         print(self.script_writer.format_script(script))
         print()
         
@@ -89,13 +100,16 @@ class YouTubeAutomationPipeline:
         print("STEP 4: VOICEOVER GENERATION")
         print("-" * 70)
         voiceover_path = os.path.join(Config.VOICEOVERS_DIR, "main_voiceover.wav")
-        
-        success = self.voiceover_gen.generate_voiceover(
-            text=script['body'],
-            output_path=voiceover_path
-        )
-        if not success:
-            print("⚠️  Voiceover generation failed. Continuing with dummy file...")
+
+        if enable_voiceover:
+            success = self.voiceover_gen.generate_voiceover(
+                text=script['body'],
+                output_path=voiceover_path
+            )
+            if not success:
+                print("⚠️  Voiceover generation failed. Continuing with dummy file...")
+        else:
+            print("⏭️  Voiceover skipped by wizard selection")
         print()
         
         # STEP 5: Subtitles
@@ -103,12 +117,14 @@ class YouTubeAutomationPipeline:
         print("-" * 70)
         subtitle_path = os.path.join(Config.OUTPUT_DIR, "subtitles.srt")
         
-        if os.path.exists(voiceover_path):
+        if enable_subtitles and os.path.exists(voiceover_path):
             self.subtitle_gen.generate_srt_from_script(
                 script_text=script['body'],
                 audio_file=voiceover_path,
                 output_srt=subtitle_path
             )
+        elif not enable_subtitles:
+            print("⏭️  Subtitles skipped by wizard selection\n")
         else:
             print("⚠️  Skipping subtitles (no audio file)\n")
         
@@ -133,17 +149,20 @@ class YouTubeAutomationPipeline:
         # STEP 8: Thumbnail
         print("STEP 8: THUMBNAIL GENERATION")
         print("-" * 70)
-        thumbnail_path = self.thumbnail_gen.generate_thumbnail(
-            topic=topic,
-            style="movie"
-        )
-        if thumbnail_path:
-            self.thumbnail_gen.add_text_to_thumbnail(
-                thumbnail_path=thumbnail_path,
-                text=metadata['thumbnail_text'][:25],
-                output_path=os.path.join(Config.THUMBNAILS_DIR, "final_thumbnail.png"),
-                text_position="bottom"
+        if enable_thumbnail:
+            thumbnail_path = self.thumbnail_gen.generate_thumbnail(
+                topic=topic,
+                style="movie"
             )
+            if thumbnail_path:
+                self.thumbnail_gen.add_text_to_thumbnail(
+                    thumbnail_path=thumbnail_path,
+                    text=metadata['thumbnail_text'][:25],
+                    output_path=os.path.join(Config.THUMBNAILS_DIR, "final_thumbnail.png"),
+                    text_position="bottom"
+                )
+        else:
+            print("⏭️  Thumbnail generation skipped by wizard selection")
         print()
         
         # STEP 9: Video Assembly
@@ -170,6 +189,46 @@ class YouTubeAutomationPipeline:
         print("5. Run workflow again for full video generation")
         
         return True
+
+    def run_step_wizard(self):
+        """Guided step-by-step wizard for workflow preferences."""
+        print("\n🧙 VIDEO CREATION WIZARD\n")
+        print("We'll configure each step before running the pipeline.\n")
+
+        use_custom_topic = input("Use a custom topic? (y/N): ").strip().lower() == "y"
+        topic = None
+        if use_custom_topic:
+            topic = input("Enter your topic: ").strip()
+
+        style = input("Script style [cinematic/documentary/educational] (default: cinematic): ").strip().lower()
+        if not style:
+            style = "cinematic"
+
+        enable_voiceover = input("Generate voiceover? (Y/n): ").strip().lower() != "n"
+        enable_subtitles = input("Generate subtitles? (Y/n): ").strip().lower() != "n"
+        enable_thumbnail = input("Generate thumbnail? (Y/n): ").strip().lower() != "n"
+
+        print("\n📋 Wizard Summary")
+        print(f"- Topic mode: {'Custom topic' if use_custom_topic else 'Trend detection'}")
+        if topic:
+            print(f"- Custom topic: {topic}")
+        print(f"- Script style: {style}")
+        print(f"- Voiceover: {'Enabled' if enable_voiceover else 'Skipped'}")
+        print(f"- Subtitles: {'Enabled' if enable_subtitles else 'Skipped'}")
+        print(f"- Thumbnail: {'Enabled' if enable_thumbnail else 'Skipped'}")
+
+        proceed = input("\nStart workflow with these settings? (Y/n): ").strip().lower() != "n"
+        if not proceed:
+            print("❌ Wizard cancelled. No workflow started.")
+            return False
+
+        return self.create_video_workflow(
+            custom_topic=topic,
+            script_style=style,
+            enable_voiceover=enable_voiceover,
+            enable_subtitles=enable_subtitles,
+            enable_thumbnail=enable_thumbnail
+        )
     
     def quick_demo(self):
         """Quick demonstration of all agents"""
@@ -219,8 +278,9 @@ def main():
         print("1. With trend detection (requires API keys)")
         print("2. With custom topic")
         print("3. Demo mode (test agents only)")
+        print("4. Step-by-step wizard (recommended)")
         
-        choice = input("\nSelect option (1-3): ").strip()
+        choice = input("\nSelect option (1-4): ").strip()
         
         if choice == "1":
             pipeline.create_video_workflow()
@@ -230,6 +290,8 @@ def main():
                 pipeline.create_video_workflow(custom_topic=topic)
         elif choice == "3":
             pipeline.quick_demo()
+        elif choice == "4":
+            pipeline.run_step_wizard()
         else:
             print("Invalid choice")
         
