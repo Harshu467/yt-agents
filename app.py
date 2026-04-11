@@ -439,8 +439,19 @@ def final_upload(workflow_id):
                 return jsonify({'error': f'Step {step} not approved'}), 400
         
         # Get video file from workflow
-        video_file = workflow['steps']['video']['data'].get('file') if workflow['steps']['video']['data'] else None
-        if not video_file:
+        video_step_data = workflow['steps']['video']['data'] or {}
+        video_file = video_step_data.get('file')
+        # Canonical storage id (preferred). Older workflows may only have /api/videos/<id>
+        workflow_video_id = video_step_data.get('video_id')
+
+        # Backward-compatible extraction for values like "/api/videos/<id>"
+        if not workflow_video_id and isinstance(video_file, str):
+            if video_file.startswith('/api/videos/'):
+                workflow_video_id = video_file.rsplit('/', 1)[-1]
+            elif '/api/videos/' in video_file:
+                workflow_video_id = video_file.split('/api/videos/')[-1].split('?', 1)[0]
+
+        if not video_file and not workflow_video_id:
             return jsonify({'error': 'No video file found'}), 400
         
         # Prepare upload data
@@ -448,6 +459,8 @@ def final_upload(workflow_id):
             'title': workflow['steps']['metadata']['data']['title'],
             'description': workflow['steps']['metadata']['data']['description'],
             'tags': workflow['steps']['metadata']['data']['tags'],
+            # Keep original value when present for traceability, but retain a
+            # canonical id path for storage lookups below.
             'video_file': video_file,
             'status': upload_metadata.get('status', 'public'),
             'playlist_id': upload_metadata.get('playlist_id')
@@ -481,10 +494,19 @@ def final_upload(workflow_id):
 
                 # If still not found, try VideoStorage lookup
                 storage = get_video_storage()
+                if not local_path and workflow_video_id:
+                    candidate = storage.get_video_file(workflow_video_id)
+                    if isinstance(candidate, str) and not candidate.startswith(('http://', 'https://')):
+                        local_path = candidate
+
                 if not local_path:
                     # Search metadata for matching filename/path
                     for v in storage.get_all_videos():
-                        if v.get('filepath') == video_file or v.get('filename') == video_file:
+                        if (
+                            v.get('id') == workflow_video_id or
+                            v.get('filepath') == video_file or
+                            v.get('filename') == video_file
+                        ):
                             local_path = v.get('filepath')
                             video_id = v.get('id')
                             break
@@ -508,7 +530,9 @@ def final_upload(workflow_id):
             info = None
 
             # If video_file is a storage id or timestamp, get metadata
-            if isinstance(video_file, str):
+            if workflow_video_id:
+                info = storage.get_video_info(workflow_video_id) or None
+            elif isinstance(video_file, str):
                 info = storage.get_video_info(video_file) or None
 
             # If video_file is dict with metadata
